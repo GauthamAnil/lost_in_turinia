@@ -55,7 +55,15 @@ class World(object):
             if entity is not self.player and entity.name == 'door':
                 return True
         return False
-        
+
+    def remove_entity_or_player_from_world(self, row, col, entity_name=None, remove_player=False):
+        #print(locals())
+        entities_in_current_position = self.world[row][col]
+        current_entities_without = [ entity for entity in entities_in_current_position
+                                     if (entity is not Player if remove_player
+                                         else entity.name == entity_name) ]
+        self.world[row][col] = current_entities_without
+    
     def move_player(self, row_offset, col_offset):
         current_row, current_col = self.player_location
         new_row = current_row + row_offset
@@ -73,14 +81,16 @@ class World(object):
             print(f"You cannot move that way. You are blocked by a {blocking_entity.name}")
         else:
             # we actually move the player
-            current_entities_without_player = [ entity for entity in entities_in_current_position
-                                                if entity is not Player ]
-            self.world[current_row][current_col] = current_entities_without_player
+            self.remove_entity_or_player_from_world(current_row, current_col, remove_player=True)
             self.world[new_row][new_col].append(self.player)
             self.player_location = (new_row, new_col)
-            if self.did_the_player_reach_the_door():
-                self.game_over = True
-                print("You have found the door! Good Bye!")
+
+            # do the interaction
+            for entity in entities_in_new_position:
+                if entity is self.player:
+                    continue
+                #print(locals())
+                entity.interact(self.player, self)
         
     def do_command(self, command):
         if command == 'move north':
@@ -101,33 +111,39 @@ class World(object):
 
             
 class Entity(object):
-    pass
+    
+    def interact(self, player):
+        pass
 
 class Door(object):
     name = 'door'
     blocking = False
-    pass
+    def interact(self, player, world):
+        print(player.bag)
+        for entity in player.bag:
+            if entity.name == 'key':
+                world.game_over = True
+                print("You have found the door! Good Bye!")
 
 class Wall(object):
     name = 'wall'
     blocking = True
     pass
 
+class Key(object):
+    name = 'key'
+    blocking = False
+    def interact(self, player, world):
+        current_row, current_col = world.player_location
+        world.remove_entity_or_player_from_world(current_row, current_col, entity_name = 'key')
+        player.bag.append(self)
+        print("You picked up a rusty key from the floor. It looks important. You put it in your bag.")
+
 class Player(object):
     name = 'player'
-    
-    pass
 
-def test():
-    world = World("map.yaml")
-    player = Player()
-    world.place_player(player, 1, 1)
-    print(world.world)
-    world.do_command('move south')
-    world.do_command('move south')
-    world.do_command('move east')
-    world.do_command('move east')
-    world.do_command('move east')
+    def __init__(self):
+        self.bag = []
 
 def main():
     world = World("map.yaml")
@@ -143,5 +159,5 @@ def main():
             done = True
     
 if __name__ == '__main__':
-    #test()
-    main()
+    test()
+    #main()
